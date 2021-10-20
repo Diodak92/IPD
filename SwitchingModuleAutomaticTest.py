@@ -1,7 +1,27 @@
-from pymodbus.client.sync import ModbusSerialClient as ModbusClient  # initialize a serial RTU client instance
+### REGISTER MAP ###
+
+# 40001 = control_reg
+# 40002 = soft_start_time_reg
+# 40003 = status_reg
+# 40004 = rms_rurrent_reg
+# 40005 = cycle_reg[0]
+# 40006 = cycle_reg[1]
+# 40007 = cycle_reg[2]
+
+### STATUS REGISTER ###
+# 0b10000000 = PHASE1_BIT
+# 0b01000000 = PHASE2_BIT 
+# 0b00100000 = PHASE3_BIT
+# 0b00010000 = BUSSY_BIT
+# 0b00001000 = VOLTAGE_ON_OUTPUT_BIT
+# 0b00000100 = SHORT_CIRCUIT_BIT
+# 0b00000010 = INVALID_CMD_REG_BIT
+# 0b00000001 = INTERNAL_ERROR_BIT
+
+from pymodbus.client.sync import ModbusSerialClient as ModbusClient
 from time import sleep
 import logging
-
+import random
 
 MODBUS_ADDR = 100
 
@@ -9,14 +29,12 @@ logging.basicConfig()
 log = logging.getLogger()
 log.setLevel(logging.ERROR)
 
+# initialize a serial RTU client instance
 client = ModbusClient(method="rtu", port="COM8", stopbits=1, bytesize=8, parity='N', baudrate=38400)
 
 # Connect to the serial modbus server
 connection = client.connect()
 print("got connection : ", connection)
-
-# client.write_register(0x00, 0, unit=MODBUS_ADDR)
-
 
 def read_reg():
     result = client.read_holding_registers(0x00, 7, unit=MODBUS_ADDR)
@@ -31,95 +49,41 @@ def read_reg():
                                                                                             tt[2], tt[3],
                                                                                             tt[4], tt[5],
                                                                                             tt[6], tt[7]))
-
-
 def read_current():
-    result = client.read_holding_registers(0x04, 1, unit=MODBUS_ADDR)
+    result = client.read_holding_registers(0x03, 1, unit=MODBUS_ADDR)
     if result:
         print('[{}]'.format(', '.join(hex(x) for x in result.registers)))
         tt = result.registers[0]
         print(tt)
 
+def read_switching_cycles():
+    result = client.read_holding_registers(0x04, 3, unit=MODBUS_ADDR)
+    if result:
+        print('[{}]'.format(', '.join(x for x in result.registers)))
+        tt = result.registers[0]
+        print(tt)
 
 def set_phase(phase):
     resp = client.write_register(0x00, phase, unit=MODBUS_ADDR)
 
-
 def set_soft_start(time):
     resp = client.write_register(0x01, time, unit=MODBUS_ADDR)
 
+wait_time = 3.0 # [s]
+soft_start_time = 1500 #[ms]
 
-# for i in range(0, 3):
-#     result = client.read_holding_registers(0x00, 5, unit=MODBUS_ADDR)
-#     if result:
-#         print('[{}]'.format(', '.join(hex(x) for x in result.registers)))
-#         tt = bin(result.registers[1])
-#         tt = tt[2:]
-#         while len(tt) < 8:
-#             tt += '0'
-#         print('phase: {}{}{}  bussy: {}  v_on_out: {} short: {} inv_cmd: {} err: {}'.format(tt[0], tt[1],
-#                                                                                             tt[2], tt[3],
-#                                                                                             tt[4], tt[5],
-#                                                                                             tt[6], tt[7]))
-#     client.write_register(0x00, i % 4, unit=MODBUS_ADDR)
-#     sleep(2)
+set_soft_start(soft_start_time)
 
-# print("elo")
-# for i in range(0, 3):
-#     # set_phase(0)
-#     # sleep(0.5)
-#     read_reg()
-#     sleep(0.5)
-
-
-
-# read_reg()
-# sleep(10)
-
-
-
-wait_time = 3.0
-
-# for i in range(0, 100):
-#     sleep(0.1)
-#     read_reg()
-
-set_soft_start(1500)
-
-
-# for i in range(0, 50):
-#     set_phase(0)
-#     sleep(wait_time)
-#     read_reg()
-#     set_phase(3)
-#     sleep(wait_time)
-#
-#
-# set_phase(0)
-# sleep(wait_time)
-# set_phase(1)
-# sleep(wait_time)
-# set_phase(2)
-# sleep(wait_time)
-# set_phase(3)
-# sleep(wait_time)
-# set_phase(0)
-# #
-for i in range(0, 50):
-    set_phase(0)
+for i in range(1, 50):
+    selected_phase = random.randint(0,3)
+    set_phase(selected_phase)
+    print("Cycle: ", i, " Selected phase: ", selected_phase)
+    print("Measured current: " , round((read_current()/1000.0), 2), " [A]")
+    print("Relay cycles: ", read_switching_cycles())
     sleep(wait_time)
-    read_reg()
-    set_phase(1)
-    sleep(wait_time)
-    read_reg()
-    set_phase(2)
-    sleep(wait_time)
-    read_reg()
-    set_phase(3)
-    sleep(wait_time)
-    read_reg()
+    print("\n")
 
 set_phase(0)
-
+print("Test done, outlet disconnected")
 
 client.close()
