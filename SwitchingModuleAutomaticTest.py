@@ -41,8 +41,7 @@ def read_reg():
     result = client.read_holding_registers(0x00, 7, unit=MODBUS_ADDR)
     if result:
         print('[{}]'.format(', '.join(hex(x) for x in result.registers)))
-        tt = bin(result.registers[1])
-        tt = tt[2:]
+        tt = bin(result.registers[2])
         while len(tt) < 8:
             tt += '0'
         print(tt)
