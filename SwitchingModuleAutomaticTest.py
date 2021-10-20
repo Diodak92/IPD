@@ -1,86 +1,125 @@
-import random
-import time
-
-import pymodbus
-import serial
-from pymodbus.pdu import ModbusRequest
-from pymodbus.client.sync import ModbusSerialClient as ModbusClient #initialize a serial RTU client instance
-from pymodbus.transaction import ModbusRtuFramer
-
+from pymodbus.client.sync import ModbusSerialClient as ModbusClient  # initialize a serial RTU client instance
+from time import sleep
 import logging
+
+
+MODBUS_ADDR = 100
+
 logging.basicConfig()
 log = logging.getLogger()
-log.setLevel(logging.DEBUG)
+log.setLevel(logging.ERROR)
 
-#count= the number of registers to read
-#unit= the slave unit this request is targeting
-#address= the starting address to read from
+client = ModbusClient(method="rtu", port="COM8", stopbits=1, bytesize=8, parity='N', baudrate=38400)
 
-# specify com port and transmission parameters
-com = "/dev/ttyUSB0"
-client = ModbusClient(method='rtu', port=com, stwopbits = 1, bytesize = 8, parity = 'N', baudrate = 38400)
+# Connect to the serial modbus server
+connection = client.connect()
+print("got connection : ", connection)
 
-#Connect to the serial modbus server
-#connection = client.connect()
-#print(connection)
-
-print("Software for automatic testing of IPD phase switching module: ")
-switchingCyckles = int(input("Please enter number of switching cyckles: "))
-cyckleTime = int(input("Please enter time beetwen switching cyckles  [s]: "))
-
-# function for decoding and printing device status
-def statusDecode(status):
-    state = ''
-    standby = False
-    error =[False, '']
-    #if(~status & 0b00001111 | status & 0b00001000):
-    #    state = "Device is switched off"
-    if(status & 0b00000001 | status & 0b00001000 == 9):
-        state = "The first phase is on"
-    if(status & 0b00000010 | status & 0b00001000 == 10):
-        state = "The second phase is on"
-    if(status & 0b00000100 | status & 0b00001000 == 12):
-        state = "The third phase is on"
-    if(status & 0b00010000):
-        # set standby marker
-        standby = True
-    if(status & 0b00100000):
-        error[0] = True
-        error[1] = "Error! Relay short circuit detected"
-    if(status & 0b01000000):
-        error[0] = True
-        error[1] = "Error! Unknown control register value"
-    if(status & 0b10000000):
-        error[0] = True
-        error[1] = "Device fault!"
-    elif(state == ''):
-        state = "Uknown status"
-    decodedStatus = [state, standby, error]
-    return decodedStatus
+# client.write_register(0x00, 0, unit=MODBUS_ADDR)
 
 
-previousState = 0
-newState = 0
+def read_reg():
+    result = client.read_holding_registers(0x00, 7, unit=MODBUS_ADDR)
+    if result:
+        print('[{}]'.format(', '.join(hex(x) for x in result.registers)))
+        tt = bin(result.registers[1])
+        tt = tt[2:]
+        while len(tt) < 8:
+            tt += '0'
+        print(tt)
+        print('phase: {}{}{}  bussy: {}  v_on_out: {} short: {} inv_cmd: {} err: {}'.format(tt[0], tt[1],
+                                                                                            tt[2], tt[3],
+                                                                                            tt[4], tt[5],
+                                                                                            tt[6], tt[7]))
 
-for cyckle in range(switchingCyckles + 1):
-    statusReg = 0   
-    # chceck if device is ready for next switching cyckle
-    while(statusDecode(statusReg)[1] != True):
-        statusReg = int(input("Please enter value for device status register:"))
-        deviceStatus = statusDecode(statusReg)
-        print(deviceStatus[0])
-        if(deviceStatus[2][0] == True):
-            print(deviceStatus[2][1])
-            newState = random.randint(0,3)
-            if(newState != previousState):
-                previousState = newState
-                print("Switching cyckle number:", cyckle, "new state" , newState)
-            time.sleep(cyckleTime)
-            break
-    else:
-        continue
-    break
-print("Done! Working fine!")
 
-#Closes the underlying socket connection
-#client.close()
+def read_current():
+    result = client.read_holding_registers(0x04, 1, unit=MODBUS_ADDR)
+    if result:
+        print('[{}]'.format(', '.join(hex(x) for x in result.registers)))
+        tt = result.registers[0]
+        print(tt)
+
+
+def set_phase(phase):
+    resp = client.write_register(0x00, phase, unit=MODBUS_ADDR)
+
+
+def set_soft_start(time):
+    resp = client.write_register(0x01, time, unit=MODBUS_ADDR)
+
+
+# for i in range(0, 3):
+#     result = client.read_holding_registers(0x00, 5, unit=MODBUS_ADDR)
+#     if result:
+#         print('[{}]'.format(', '.join(hex(x) for x in result.registers)))
+#         tt = bin(result.registers[1])
+#         tt = tt[2:]
+#         while len(tt) < 8:
+#             tt += '0'
+#         print('phase: {}{}{}  bussy: {}  v_on_out: {} short: {} inv_cmd: {} err: {}'.format(tt[0], tt[1],
+#                                                                                             tt[2], tt[3],
+#                                                                                             tt[4], tt[5],
+#                                                                                             tt[6], tt[7]))
+#     client.write_register(0x00, i % 4, unit=MODBUS_ADDR)
+#     sleep(2)
+
+# print("elo")
+# for i in range(0, 3):
+#     # set_phase(0)
+#     # sleep(0.5)
+#     read_reg()
+#     sleep(0.5)
+
+
+
+# read_reg()
+# sleep(10)
+
+
+
+wait_time = 3.0
+
+# for i in range(0, 100):
+#     sleep(0.1)
+#     read_reg()
+
+set_soft_start(1500)
+
+
+# for i in range(0, 50):
+#     set_phase(0)
+#     sleep(wait_time)
+#     read_reg()
+#     set_phase(3)
+#     sleep(wait_time)
+#
+#
+# set_phase(0)
+# sleep(wait_time)
+# set_phase(1)
+# sleep(wait_time)
+# set_phase(2)
+# sleep(wait_time)
+# set_phase(3)
+# sleep(wait_time)
+# set_phase(0)
+# #
+for i in range(0, 50):
+    set_phase(0)
+    sleep(wait_time)
+    read_reg()
+    set_phase(1)
+    sleep(wait_time)
+    read_reg()
+    set_phase(2)
+    sleep(wait_time)
+    read_reg()
+    set_phase(3)
+    sleep(wait_time)
+    read_reg()
+
+set_phase(0)
+
+
+client.close()
