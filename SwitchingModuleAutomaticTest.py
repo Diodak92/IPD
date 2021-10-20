@@ -36,6 +36,7 @@ client = ModbusClient(method="rtu", port="COM8", stopbits=1, bytesize=8, parity=
 connection = client.connect()
 print("got connection : ", connection)
 
+### FUNCTIONS DEFINITION ###
 def read_reg():
     result = client.read_holding_registers(0x00, 7, unit=MODBUS_ADDR)
     if result:
@@ -69,12 +70,12 @@ def set_phase(phase):
 def set_soft_start(time):
     resp = client.write_register(0x01, time, unit=MODBUS_ADDR)
 
-wait_time = 3.0 # [s]
-soft_start_time = 1500 #[ms]
+### MAIN PROGRAM ###
+set_soft_start(int(input("Enter soft start time 500:5000 [ms]: ")))
+cycles = int(input("Enter number of switching cycles: "))
+wait_time = float(input("Enter test loop cycle time [s]: "))
 
-set_soft_start(soft_start_time)
-
-for i in range(1, 50):
+for i in range(1, cycles):
     selected_phase = random.randint(0,3)
     set_phase(selected_phase)
     print("Cycle: ", i, " Selected phase: ", selected_phase)
