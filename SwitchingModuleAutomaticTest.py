@@ -42,26 +42,35 @@ def read_reg():
     if result:
         print('[{}]'.format(', '.join(hex(x) for x in result.registers)))
         tt = bin(result.registers[2])
-        while len(tt) < 8:
-            tt += '0'
+        #while len(tt) < 8:
+        #    tt += '0'
+        #print(tt)
+        #print('phase: {}{}{}  bussy: {}  v_on_out: {} short: {} inv_cmd: {} err: {}'.format(tt[0], tt[1],
+        #                                                                                    tt[2], tt[3],
+        #                                                                                    tt[4], tt[5],
+        #                                                                                    tt[6], tt[7]))
+def read_status_reg():
+    result = client.read_holding_registers(0x02, 1, unit=MODBUS_ADDR)
+    if result:
+        tt = bin(result.registers[0])
         print(tt)
-        print('phase: {}{}{}  bussy: {}  v_on_out: {} short: {} inv_cmd: {} err: {}'.format(tt[0], tt[1],
-                                                                                            tt[2], tt[3],
-                                                                                            tt[4], tt[5],
-                                                                                            tt[6], tt[7]))
+
 def read_current():
     result = client.read_holding_registers(0x03, 1, unit=MODBUS_ADDR)
     if result:
-        print('[{}]'.format(', '.join(hex(x) for x in result.registers)))
+        #print('[{}]'.format(', '.join(hex(x) for x in result.registers)))
         tt = result.registers[0]
-        print(tt)
+        tt = round((tt/1000.0), 2)
+        if tt <= 0.05:
+            tt = 0
+        print("Measured current: ",tt," [A]")
 
 def read_switching_cycles():
     result = client.read_holding_registers(0x04, 3, unit=MODBUS_ADDR)
     if result:
-        print('[{}]'.format(', '.join(x for x in result.registers)))
-        tt = result.registers[0]
-        print(tt)
+        #print('[{}]'.format(', '.join(x for x in result.registers)))
+        tt = result.registers
+        print("Number of cycles: \n", "R1: ", tt[0], "\n R2: ", tt[1], "\n R3: ", tt[2])
 
 def set_phase(phase):
     resp = client.write_register(0x00, phase, unit=MODBUS_ADDR)
@@ -70,18 +79,23 @@ def set_soft_start(time):
     resp = client.write_register(0x01, time, unit=MODBUS_ADDR)
 
 ### MAIN PROGRAM ###
+current_measure_cycles = 5
 set_soft_start(int(input("Enter soft start time 500:5000 [ms]: ")))
 cycles = int(input("Enter number of switching cycles: "))
 wait_time = float(input("Enter test loop cycle time [s]: "))
+until_measure_time = wait_time/(current_measure_cycles+1)
 
-for i in range(1, cycles):
+for i in range(1, cycles+1):
     selected_phase = random.randint(0,3)
     set_phase(selected_phase)
-    print("Cycle: ", i, " Selected phase: ", selected_phase)
-    print("Measured current: " , round((read_current()/1000.0), 2), " [A]")
-    print("Relay cycles: ", read_switching_cycles())
-    sleep(wait_time)
+    print("TEST: ", i, " Selected phase: ", selected_phase)
+    for j in range(0,current_measure_cycles):
+        sleep(until_measure_time)
+        read_current()
+    read_switching_cycles()
+    read_reg()
     print("\n")
+    sleep(wait_time-current_measure_cycles*until_measure_time)
 
 set_phase(0)
 print("Test done, outlet disconnected")
