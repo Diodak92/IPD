@@ -63,6 +63,7 @@ while(cycles>=i):
     if(cb_state[2] == 1): #(cb_state[0] == 1 or cb_state[2] == 1):
         print("CB-open: ", cb_state[0]," CB-closed: ", cb_state[1], " CB-tripped: ", cb_state[2])
         reset_MDM(wait_time)
+        print("CB-open: ", cb_state[0]," CB-closed: ", cb_state[1], " CB-tripped: ", cb_state[2])
         print("\n")
         i = i+1
         print("TEST: ", i)
