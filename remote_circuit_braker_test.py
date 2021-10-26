@@ -19,7 +19,6 @@ print("got connection : ", connection)
 ### FUNCTIONS DEFINITION ###
 def read_casd_state():
     result = client.read_discrete_inputs(0x4000, 3, unit=10)
-    #print(result)
     return(result.bits[0:3])    
 
 def read_sm4_state():
@@ -34,7 +33,7 @@ def set_SSR(state):
     resp = client.write_register(4211, state, unit=SM4_MODBUS_ADDR)
     return(resp)
 
-def  countdown(seconds):
+def countdown(seconds):
     print("CIRCUIT BRAKER OVERLOADED!!! RESET IN: ")
     for i in range (seconds, 0, -1):
         sleep(1)
@@ -61,7 +60,7 @@ while(cycles>=i):
     set_SSR(on)
     sleep(1)
     cb_state = read_casd_state()
-    if(cb_state[2] == 1):#(cb_state[0] == 1 or cb_state[2] == 1):
+    if(cb_state[2] == 1): #(cb_state[0] == 1 or cb_state[2] == 1):
         print("CB-open: ", cb_state[0]," CB-closed: ", cb_state[1], " CB-tripped: ", cb_state[2])
         reset_MDM(wait_time)
         print("\n")
